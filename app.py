@@ -23,10 +23,14 @@ load_dotenv()
 # Patch retry to use verify=False — safe because the first request already
 # validated the TEE certificate via the pinned ssl_ctx.
 try:
-    import x402.clients.httpx as _x402_httpx
+    try:
+        import x402.clients.httpx as _x402_httpx
+        from x402.clients.base import PaymentError as _PaymentError
+    except ModuleNotFoundError:
+        import x402.httpx as _x402_httpx  # newer layout
+        from x402.base import PaymentError as _PaymentError
     from httpx import AsyncClient as _AsyncClient
     from x402.types import x402PaymentRequiredResponse as _x402PRR
-    from x402.clients.base import PaymentError as _PaymentError
 
     async def _patched_on_response(self, response):
         if response.status_code != 402:
