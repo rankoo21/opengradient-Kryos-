@@ -80,7 +80,7 @@ def get_llm():
         _llm = og.LLM(private_key=pk)
         # Try to refresh approval; if wallet balance is too low, rely on existing on-chain approval.
         try:
-            _llm.ensure_opg_approval(10.0)
+            _llm.ensure_opg_approval(0.1)
         except Exception as e:
             print(f"[OG] ensure_opg_approval skipped: {e}")
     return _llm
