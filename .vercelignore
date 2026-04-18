@@ -1,9 +1,10 @@
 .env
+.env.local
 __pycache__/
 *.pyc
 temp_git/
 .vscode/
-node_modules/
 .gemini/
-
-.vercel
+node_modules/
+_test_*.py
+*.md

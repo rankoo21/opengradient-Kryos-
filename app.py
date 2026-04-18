@@ -774,9 +774,12 @@ async def api_chat(req: ChatRequest):
     """Main streaming chat endpoint with tool calling"""
 
     async def generate():
+        import traceback as _tb
         try:
             llm = get_llm()
         except Exception as e:
+            print(f"[OG] get_llm FAILED: {type(e).__name__}: {e}")
+            print(_tb.format_exc())
             yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
             return
 
@@ -853,15 +856,34 @@ async def api_chat(req: ChatRequest):
             yield f"data: {json.dumps({'type': 'done', 'payment_hash': payment_hash})}\n\n"
 
         except Exception as e:
-            yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
+            print(f"[CHAT] FAILED: {type(e).__name__}: {e}")
+            print(_tb.format_exc())
+            # Try to extract response body if httpx status error
+            extra = ""
+            try:
+                resp = getattr(e, "response", None)
+                if resp is not None:
+                    body = resp.text
+                    hdrs = dict(resp.headers)
+                    print(f"[CHAT] HTTP status={resp.status_code} headers={hdrs}")
+                    print(f"[CHAT] HTTP body={body[:2000]}")
+                    extra = f" | body={body[:300]}"
+            except Exception as _err:
+                print(f"[CHAT] could not inspect response: {_err}")
+            yield f"data: {json.dumps({'type': 'error', 'content': str(e) + extra})}\n\n"
 
     return StreamingResponse(generate(), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
 # ── Static ────────────────────────────────────────────────────────────────────
+# Resolve public/ relative to this file so it works in both local + serverless
+_PUBLIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "public")
+
 @app.get("/")
 async def serve_index():
-    return FileResponse("public/index.html")
+    return FileResponse(os.path.join(_PUBLIC_DIR, "index.html"))
 
-app.mount("/", StaticFiles(directory="public"), name="static")
+# Only mount static if the directory exists (serverless may bundle it separately)
+if os.path.isdir(_PUBLIC_DIR):
+    app.mount("/static", StaticFiles(directory=_PUBLIC_DIR), name="static")

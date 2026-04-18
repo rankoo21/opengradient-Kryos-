@@ -1,5 +1,5 @@
 opengradient>=0.9.9
-fastapi
+fastapi>=0.110
 uvicorn[standard]
 python-dotenv
 requests
