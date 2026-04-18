@@ -1,0 +1,2060 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kryos · TEE-verified market intelligence</title>
+  <meta name="description" content="Professional DeFi intelligence terminal powered by OpenGradient TEE-verified AI." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Fraunces:ital,wght@1,600;1,700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ═══════════════════════════════════════════════════════════════
+       EDITORIAL INTELLIGENCE — design tokens
+       60% warm black · 30% cream ink · 10% single amber signal
+       ═══════════════════════════════════════════════════════════════ */
+    :root {
+      --bg:        #0a0a08;
+      --surface:   #111110;
+      --surface-2: #18181500;
+      --ink:       #eae7dc;
+      --ink-2:     #c7c3b4;
+      --ink-dim:   #8a8678;
+      --rule:      #26261f;
+      --rule-2:    #161613;
+
+      /* THE single signature color */
+      --signal:    #ffb800;
+      --signal-soft: rgba(255, 184, 0, 0.08);
+
+      /* Semantic — desaturated, non-neon */
+      --up:        #5db980;
+      --down:      #e85c5c;
+
+      /* Compatibility aliases (old code still references these) */
+      --bg2:       var(--surface);
+      --bg3:       #1b1b16;
+      --text:      var(--ink);
+      --muted:     var(--ink-dim);
+      --dim:       var(--rule);
+      --cyan:      var(--signal);
+      --cyan-dim:  var(--signal-soft);
+      --cyan-bdr:  var(--rule);
+      --amber:     var(--signal);
+      --green:     var(--up);
+      --red:       var(--down);
+      --purple:    var(--signal);
+
+      --sans:      'Space Grotesk', system-ui, sans-serif;
+      --mono:      'JetBrains Mono', ui-monospace, monospace;
+      --serif:     'Fraunces', Georgia, serif;
+    }
+
+    html, body { height: 100%; background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 14px; overflow: hidden; -webkit-font-smoothing: antialiased; font-feature-settings: 'ss01', 'ss02'; }
+
+    /* Subtle grain — tactile, not scanlines */
+    body::before { content: ''; position: fixed; inset: 0; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.08 0 0 0 0 0.08 0 0 0 0 0.05 0 0 0 0.5 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.35'/></svg>"); pointer-events: none; z-index: 9999; opacity: 0.5; mix-blend-mode: overlay; }
+
+    /* Class helpers */
+    .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+    .tnum { font-variant-numeric: tabular-nums; }
+    .italic-accent { font-family: var(--serif); font-style: italic; font-weight: 600; }
+
+    /* ── Layout ── */
+    #shell {
+      display: grid;
+      grid-template-rows: 28px 64px auto 1fr 72px 26px;
+      grid-template-columns: minmax(0, 1fr) 300px;
+      grid-template-areas:
+        "ticker  ticker"
+        "header  header"
+        "alerts  alerts"
+        "chat    market"
+        "input   input"
+        "footer  footer";
+      height: 100vh;
+    }
+
+    /* ── TICKER ── */
+    #ticker {
+      grid-area: ticker;
+      background: var(--bg);
+      border-bottom: 1px solid var(--rule);
+      display: flex;
+      align-items: center;
+      overflow: hidden;
+      position: relative;
+    }
+
+    #ticker::before {
+      content: '';
+      position: absolute; left: 0; top: 50%;
+      transform: translateY(-50%);
+      width: 6px; height: 6px;
+      background: var(--signal);
+      border-radius: 50%;
+      margin-left: 18px;
+      box-shadow: 0 0 0 4px rgba(255,184,0,0.15);
+      z-index: 2;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0%,100%{box-shadow:0 0 0 4px rgba(255,184,0,0.15)} 50%{box-shadow:0 0 0 6px rgba(255,184,0,0.05)} }
+
+    .ticker-track { display: flex; animation: ticker-scroll 45s linear infinite; white-space: nowrap; padding-left: 40px; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+    @keyframes ticker-scroll { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+
+    .ticker-item { display: inline-flex; align-items: baseline; gap: 8px; padding: 0 24px; font-size: 11px; }
+    .ticker-item + .ticker-item { border-left: 1px solid var(--rule-2); }
+    .ticker-item .t-name  { color: var(--ink-dim); font-weight: 500; letter-spacing: 0.5px; text-transform: uppercase; font-family: var(--sans); font-size: 10px; }
+    .ticker-item .t-price { color: var(--ink); font-weight: 500; }
+    .ticker-item .t-up    { color: var(--up); font-weight: 500; }
+    .ticker-item .t-down  { color: var(--down); font-weight: 500; }
+
+    /* ── HEADER ── */
+    #header {
+      grid-area: header;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 28px;
+      background: var(--bg);
+      border-bottom: 1px solid var(--rule);
+    }
+
+    .brand { display: flex; align-items: baseline; gap: 14px; transition: opacity 0.15s; }
+    .brand:hover { opacity: 0.75; }
+    .brand-logo { font-size: 20px; color: var(--signal); }
+    .brand-name { font-size: 20px; font-weight: 600; color: var(--ink); letter-spacing: -0.02em; }
+    .brand-name::after { content: '·'; color: var(--signal); margin-left: 10px; font-weight: 700; }
+    .brand-sub  { font-family: var(--serif); font-style: italic; font-weight: 600; font-size: 13px; color: var(--ink-dim); letter-spacing: 0; text-transform: none; }
+
+    .sys-status { display: flex; align-items: center; gap: 28px; }
+    .status-item { display: flex; align-items: baseline; gap: 8px; font-size: 10px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--ink-dim); font-weight: 500; }
+    .status-dot { width: 5px; height: 5px; border-radius: 50%; align-self: center; }
+    .status-dot.green { background: var(--up); }
+    .status-dot.cyan  { background: var(--signal); animation: blink 2s infinite; }
+    .status-dot.amber { background: var(--signal); animation: blink 1.2s infinite; }
+    .status-val { color: var(--ink); font-weight: 600; font-family: var(--mono); font-variant-numeric: tabular-nums; letter-spacing: 0; text-transform: none; font-size: 12px; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.35} }
+
+    /* ── ALERTS BAR ── */
+    #alerts-bar {
+      grid-area: alerts;
+      display: none;
+      align-items: center;
+      gap: 0;
+      background: var(--surface);
+      border-bottom: 1px solid var(--rule);
+      overflow-x: auto;
+      padding: 0 28px;
+      min-height: 0;
+    }
+
+    #alerts-bar.visible { display: flex; min-height: 34px; }
+    #alerts-bar::-webkit-scrollbar { height: 0; }
+
+    #alerts-bar::before {
+      content: 'Watching';
+      font-family: var(--serif); font-style: italic; font-weight: 600;
+      font-size: 13px; color: var(--signal); margin-right: 16px;
+      flex-shrink: 0;
+    }
+
+    .alert-chip {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 10px;
+      padding: 4px 12px;
+      margin-right: 8px;
+      background: transparent;
+      border: 1px solid var(--rule);
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--ink-2);
+      letter-spacing: 0;
+      white-space: nowrap;
+      flex-shrink: 0;
+      border-radius: 2px;
+    }
+
+    .alert-chip.triggered {
+      background: var(--signal);
+      border-color: var(--signal);
+      color: var(--bg);
+      animation: alert-flash 1s infinite;
+    }
+
+    @keyframes alert-flash { 0%,100%{opacity:1} 50%{opacity:0.65} }
+
+    .alert-remove {
+      cursor: pointer; color: var(--ink-dim); background: none; border: none;
+      font-family: var(--mono); font-size: 12px; padding: 0 2px; line-height: 1;
+    }
+    .alert-remove:hover { color: var(--down); }
+
+    /* ── CHAT ── */
+    #chat {
+      grid-area: chat;
+      display: flex; flex-direction: column;
+      overflow: hidden; background: var(--bg); position: relative;
+    }
+
+    #messages { flex: 1; overflow-y: auto; padding: 32px 56px 40px; display: flex; flex-direction: column; gap: 0; position: relative; z-index: 1; max-width: 920px; width: 100%; margin: 0 auto; }
+    #messages::-webkit-scrollbar { width: 6px; }
+    #messages::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 3px; }
+    #messages::-webkit-scrollbar-thumb:hover { background: var(--ink-dim); }
+
+    /* ── Welcome ── editorial hero, not ASCII art */
+    .welcome { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100%; text-align: center; padding: 20px 0 40px; max-width: 760px; margin: 0 auto; }
+
+    .welcome-ascii { display: none; }
+
+    .welcome::before {
+      content: 'Decentralized intelligence';
+      font-family: var(--serif); font-style: italic; font-weight: 600;
+      font-size: 15px; color: var(--signal); letter-spacing: 0;
+      margin-bottom: 18px;
+    }
+
+    .welcome-title {
+      font-size: 54px; line-height: 1.02;
+      font-weight: 500; letter-spacing: -0.035em;
+      color: var(--ink); margin-bottom: 20px;
+      text-transform: none;
+    }
+    .welcome-title::before {
+      content: 'Ask anything about crypto, DeFi, wallets, or gas. ';
+      color: var(--ink);
+    }
+    .welcome-title span { display: none; }
+    .welcome-title::after {
+      content: 'Answers come with TEE-verified proofs.';
+      color: var(--ink-dim); font-weight: 400;
+    }
+
+    .welcome-sub {
+      font-size: 12px; color: var(--ink-dim); letter-spacing: 1.8px;
+      text-transform: uppercase; font-weight: 500;
+      margin-bottom: 28px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .welcome-sub::before { content: ''; width: 28px; height: 1px; background: var(--signal); display: inline-block; }
+
+    .cmd-list { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 720px; }
+    .cmd-btn {
+      padding: 10px 16px;
+      border: 1px solid var(--rule);
+      background: transparent;
+      color: var(--ink-2);
+      font-family: var(--sans);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      border-radius: 2px;
+      letter-spacing: -0.01em;
+    }
+    .cmd-btn::before { content: ''; }
+    .cmd-btn:hover { border-color: var(--signal); color: var(--signal); background: var(--signal-soft); }
+
+    /* ── Message entries ── editorial article style */
+    .entry { padding: 22px 0 26px; border-bottom: 1px solid var(--rule-2); animation: fadeIn 0.25s ease; }
+    .entry:last-child { border-bottom: none; }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+
+    .entry-header { display: flex; align-items: baseline; gap: 12px; margin-bottom: 14px; font-size: 11px; color: var(--ink-dim); }
+    .entry-tag {
+      font-weight: 600; padding: 0;
+      font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase;
+      background: none; border: none;
+    }
+    .tag-user { color: var(--ink-dim); }
+    .tag-user::before { content: '—— '; }
+    .tag-ai   { color: var(--signal); font-weight: 700; }
+    .tag-ai::before { content: '◆ '; }
+    .entry-time { color: var(--ink-dim); font-size: 10px; font-family: var(--mono); letter-spacing: 0; opacity: 0.6; }
+
+    .entry-body { padding-left: 0; line-height: 1.65; font-size: 15px; color: var(--ink); }
+    .entry.user .entry-body {
+      color: var(--ink-2);
+      font-family: var(--serif); font-style: italic; font-weight: 600;
+      font-size: 20px; line-height: 1.35;
+      border: none; padding: 0;
+      letter-spacing: -0.01em;
+    }
+    .entry.ai .entry-body { border: none; padding: 0; }
+
+    .entry-body strong { color: var(--signal); font-weight: 600; }
+    .entry-body em     { color: var(--ink); font-style: italic; font-family: var(--serif); font-weight: 600; }
+    .entry-body code   { background: var(--surface); padding: 2px 7px; color: var(--ink); font-family: var(--mono); font-size: 13px; border-radius: 2px; border: 1px solid var(--rule); }
+    .entry-body ul, .entry-body ol { padding-left: 22px; margin: 10px 0; }
+    .entry-body li  { margin-bottom: 5px; }
+    .entry-body p   { margin-bottom: 12px; }
+    .entry-body p:last-child { margin-bottom: 0; }
+    .entry-body h1, .entry-body h2, .entry-body h3 { font-weight: 600; letter-spacing: -0.015em; margin: 18px 0 8px; color: var(--ink); }
+    .entry-body h1 { font-size: 22px; } .entry-body h2 { font-size: 18px; } .entry-body h3 { font-size: 15px; }
+
+    /* Blinking cursor */
+    .cursor { display: inline-block; width: 9px; height: 1em; background: var(--signal); vertical-align: text-bottom; margin-left: 3px; animation: blink-cur 0.6s step-end infinite; }
+    @keyframes blink-cur { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    /* Tool bar */
+    .tool-bar { display: inline-flex; align-items: center; gap: 10px; font-size: 11px; color: var(--ink-dim); padding: 6px 12px; background: transparent; border: 1px solid var(--rule); border-radius: 2px; margin-bottom: 14px; letter-spacing: 0; font-family: var(--mono); }
+    .tool-bar .spinner { width: 10px; height: 10px; border: 1.5px solid var(--rule); border-top-color: var(--signal); border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; }
+    @keyframes spin { to{transform:rotate(360deg)} }
+    .tool-label { color: var(--signal); font-weight: 600; }
+
+    /* Chart */
+    .chart-block {
+      background: var(--surface);
+      border: 1px solid var(--rule);
+      padding: 16px;
+      margin-bottom: 16px;
+      border-radius: 2px;
+    }
+
+    .chart-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; font-size: 11px; }
+    .chart-coin   { color: var(--ink); font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; font-size: 11px; }
+    .chart-change { font-weight: 600; font-size: 13px; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+    .chart-change.up   { color: var(--up); }
+    .chart-change.down { color: var(--down); }
+
+    .chart-svg { display: block; width: 100%; }
+
+    /* TEE proof */
+    .proof-line {
+      display: inline-flex; align-items: center; gap: 10px; font-size: 11px;
+      padding: 6px 12px; margin-top: 14px;
+      border: 1px solid var(--rule); background: transparent;
+      color: var(--ink-dim); letter-spacing: 0.5px;
+      text-decoration: none; transition: all 0.2s;
+      font-family: var(--mono); border-radius: 2px;
+    }
+    .proof-line:hover { border-color: var(--signal); color: var(--signal); }
+    .proof-line::before { content: '◆'; color: var(--signal); }
+
+    /* Error */
+    .error-line { color: var(--down); border-left: 2px solid var(--down); padding: 2px 0 2px 14px; font-size: 13px; }
+
+    /* Alert confirmed */
+    .alert-confirm {
+      display: inline-flex; align-items: center; gap: 10px; font-size: 12px;
+      padding: 8px 14px; border: 1px solid var(--signal); background: var(--signal-soft);
+      color: var(--signal); margin-top: 12px; border-radius: 2px;
+      font-weight: 500;
+    }
+
+    /* Flash banner — solid signal color, no glow theatre */
+    #flash-banner {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 10000;
+      background: var(--signal);
+      border-bottom: 1px solid var(--bg);
+      color: var(--bg);
+      padding: 14px 28px;
+      font-family: var(--sans);
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      text-align: center;
+      text-transform: none;
+      transform: translateY(-100%);
+      transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+      pointer-events: none;
+    }
+    #flash-banner.show { transform: translateY(0); }
+
+    /* ── MARKET SIDEBAR ── */
+    #market {
+      grid-area: market;
+      background: var(--surface);
+      border-left: 1px solid var(--rule);
+      display: flex; flex-direction: column;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+    #market::-webkit-scrollbar { width: 4px; }
+    #market::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 2px; }
+    #market::-webkit-scrollbar-thumb:hover { background: var(--ink-dim); }
+
+    .panel-hdr {
+      padding: 18px 18px 8px;
+      font-size: 10px; color: var(--ink-dim);
+      letter-spacing: 2px; text-transform: uppercase; font-weight: 600;
+      display: flex; justify-content: space-between; align-items: baseline;
+    }
+    .panel-hdr .live {
+      font-family: var(--serif); font-style: italic; font-weight: 600;
+      color: var(--signal); font-size: 11px; letter-spacing: 0; text-transform: none;
+    }
+
+    #mkt-list { padding: 2px 0 8px; flex-shrink: 0; }
+
+    .mkt-row {
+      padding: 10px 18px;
+      border-bottom: 1px solid var(--rule-2);
+      cursor: pointer; transition: background 0.1s;
+    }
+    .mkt-row:hover { background: var(--signal-soft); }
+    .mkt-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+    .mkt-sym  { font-size: 13px; font-weight: 600; color: var(--ink); letter-spacing: -0.01em; }
+    .mkt-name { font-size: 11px; color: var(--ink-dim); font-weight: 400; }
+    .mkt-price{ font-size: 13px; color: var(--ink); text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 500; }
+    .mkt-chg  { font-size: 11px; font-weight: 500; text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; margin-top: 2px; }
+    .mkt-chg.up   { color: var(--up); }
+    .mkt-chg.down { color: var(--down); }
+
+    /* active alerts in market sidebar */
+    #alerts-list { border-top: 1px solid var(--rule-2); padding: 6px 0; max-height: 110px; overflow-y: auto; }
+    .a-row { padding: 6px 18px; font-size: 11px; display: flex; justify-content: space-between; align-items: center; color: var(--ink-2); }
+    .a-row button { background: none; border: none; color: var(--ink-dim); cursor: pointer; font-size: 13px; font-family: var(--mono); line-height: 1; }
+    .a-row button:hover { color: var(--down); }
+    .a-label { font-size: 10px; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 2px; padding: 6px 18px; font-weight: 600; }
+
+    .mkt-footer { padding: 12px 18px 18px; font-size: 10px; color: var(--ink-dim); border-top: 1px solid var(--rule-2); display: flex; justify-content: space-between; font-family: var(--mono); }
+    .mkt-refresh { color: var(--ink-dim); cursor: pointer; background: none; border: none; font-family: var(--mono); font-size: 10px; letter-spacing: 0.5px; }
+    .mkt-refresh:hover { color: var(--signal); }
+
+    /* ── INPUT ── */
+    #input-bar {
+      grid-area: input;
+      background: var(--bg);
+      border-top: 1px solid var(--rule);
+      display: flex; align-items: center; justify-content: center;
+      padding: 10px 32px;
+      /* Compensate for 300px sidebar on the right so input aligns with chat column */
+      padding-right: calc(32px + 300px);
+    }
+    #input-bar > .input-inner {
+      display: flex; align-items: center; gap: 12px;
+      width: 100%; max-width: 880px;
+      background: var(--surface);
+      border: 1px solid var(--rule);
+      border-radius: 6px;
+      padding: 8px 10px 8px 18px;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    #input-bar > .input-inner:focus-within {
+      border-color: var(--signal);
+      box-shadow: 0 0 0 3px rgba(255, 184, 0, 0.08);
+    }
+
+    .prompt-prefix {
+      font-family: var(--serif); font-style: italic; font-weight: 600;
+      font-size: 15px; color: var(--signal); white-space: nowrap;
+      flex-shrink: 0;
+      padding-right: 10px; border-right: 1px solid var(--rule-2);
+    }
+    #cmd-input {
+      flex: 1; background: transparent; border: none; outline: none;
+      color: var(--ink); font-family: var(--sans); font-size: 15px;
+      caret-color: var(--signal); resize: none; max-height: 120px; line-height: 1.5;
+      font-weight: 400; letter-spacing: -0.01em;
+      padding: 6px 0;
+    }
+    #cmd-input::placeholder { color: var(--ink-dim); font-family: var(--serif); font-style: italic; font-weight: 400; }
+
+    #exec-btn {
+      padding: 9px 18px; background: var(--signal); border: 1px solid var(--signal);
+      color: var(--bg); font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 1.2px; cursor: pointer; transition: all 0.15s;
+      text-transform: uppercase; white-space: nowrap; border-radius: 4px;
+      flex-shrink: 0;
+    }
+    #exec-btn:hover:not(:disabled) { background: var(--signal-bright); border-color: var(--signal-bright); }
+    #exec-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .input-hint {
+      font-size: 10px; color: var(--ink-dim); white-space: nowrap; flex-shrink: 0;
+      font-family: var(--mono); letter-spacing: 0.3px;
+      display: flex; align-items: center; gap: 10px;
+      padding-right: 4px;
+    }
+    .input-hint kbd {
+      background: var(--bg); border: 1px solid var(--rule);
+      padding: 2px 6px; border-radius: 3px; color: var(--ink-2);
+      font-family: var(--mono); font-size: 10px; font-weight: 500;
+      box-shadow: 0 1px 0 var(--rule);
+    }
+    @media (max-width: 720px) { .input-hint { display: none; } }
+
+    /* skeleton */
+    .skel { background: var(--rule); border-radius: 2px; animation: shimmer 1.5s infinite; }
+    @keyframes shimmer { 0%,100%{opacity:0.35} 50%{opacity:0.7} }
+
+    /* ── News cards ── */
+    .news-card {
+      border-bottom: 1px solid var(--rule-2);
+      padding: 12px 18px;
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    .news-card:hover { background: var(--signal-soft); }
+    .news-title { font-size: 12px; color: var(--ink); line-height: 1.4; margin-bottom: 4px; font-weight: 500; letter-spacing: -0.005em; }
+    .news-meta  { font-size: 10px; color: var(--ink-dim); font-family: var(--mono); letter-spacing: 0.3px; }
+    .news-src   { color: var(--signal); font-weight: 600; }
+
+    /* News block in chat */
+    .news-block { margin-bottom: 14px; }
+    .news-block-hdr { font-family: var(--serif); font-style: italic; font-weight: 600; font-size: 15px; color: var(--signal); letter-spacing: 0; margin-bottom: 10px; text-transform: none; }
+    .news-item {
+      display: flex; gap: 14px; align-items: baseline;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--rule-2);
+    }
+    .news-item:last-child { border: none; }
+    .news-num  { color: var(--signal); font-size: 11px; flex-shrink: 0; font-family: var(--mono); font-weight: 600; }
+    .news-item-title { font-size: 14px; color: var(--ink); line-height: 1.45; font-weight: 500; letter-spacing: -0.01em; }
+    .news-item-title a { color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--rule); transition: border-color 0.15s; }
+    .news-item-title a:hover { border-color: var(--signal); color: var(--signal); }
+    .news-item-date { font-size: 11px; color: var(--ink-dim); margin-top: 3px; font-family: var(--mono); }
+
+    /* ── GLOBAL / GAS widgets ── */
+    .widget { border-bottom: 1px solid var(--rule-2); padding: 4px 18px 14px; }
+    .widget-row { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; padding: 5px 0; }
+    .widget-row .lbl { color: var(--ink-dim); letter-spacing: 1px; text-transform: uppercase; font-size: 10px; font-weight: 500; }
+    .widget-row .val { color: var(--ink); font-weight: 500; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 13px; }
+    .widget-row .val.up { color: var(--up); }
+    .widget-row .val.down { color: var(--down); }
+
+    /* F&G gauge */
+    .fng-bar { height: 3px; background: var(--rule); margin-top: 8px; position: relative; overflow: hidden; border-radius: 1px; }
+    .fng-fill { height: 100%; background: linear-gradient(90deg, var(--down) 0%, var(--signal) 50%, var(--up) 100%); transition: width 0.4s ease; }
+    .fng-needle { position: absolute; top: -3px; width: 2px; height: 9px; background: var(--ink); transition: left 0.4s ease; }
+
+    .fng-label { font-size: 11px; color: var(--ink); letter-spacing: 0; font-family: var(--mono); font-weight: 500; }
+    .fng-label.extreme-greed { color: var(--up); }
+    .fng-label.greed         { color: var(--up); }
+    .fng-label.neutral       { color: var(--signal); }
+    .fng-label.fear          { color: var(--down); }
+    .fng-label.extreme-fear  { color: var(--down); }
+
+    /* Gas mini grid */
+    .gas-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; font-size: 12px; margin-top: 4px; }
+    .gas-cell { display: flex; justify-content: space-between; align-items: baseline; padding: 3px 0; }
+    .gas-cell .c-name { color: var(--ink-dim); font-size: 10px; letter-spacing: 1px; font-weight: 600; }
+    .gas-cell .c-val { color: var(--up); font-weight: 500; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 13px; }
+    .gas-cell .c-val.hi { color: var(--down); }
+    .gas-cell .c-val.md { color: var(--signal); }
+
+    /* Wallet widget */
+    .wallet-box { padding: 4px 18px 14px; border-bottom: 1px solid var(--rule-2); }
+    .wallet-input-row { display: flex; gap: 6px; margin-top: 6px; }
+    .wallet-input-row input {
+      flex: 1; min-width: 0; background: var(--bg); border: 1px solid var(--rule);
+      color: var(--ink); font-family: var(--mono); font-size: 11px; padding: 7px 10px;
+      outline: none; border-radius: 2px; letter-spacing: 0;
+    }
+    .wallet-input-row input:focus { border-color: var(--signal); }
+    .wallet-input-row input::placeholder { color: var(--ink-dim); font-family: var(--mono); }
+    .wallet-input-row button {
+      background: transparent; border: 1px solid var(--rule); color: var(--ink-2);
+      font-family: var(--sans); font-size: 13px; padding: 0 12px; cursor: pointer;
+      border-radius: 2px; font-weight: 600;
+    }
+    .wallet-input-row button:hover { border-color: var(--signal); color: var(--signal); background: var(--signal-soft); }
+    .wallet-result { font-size: 12px; color: var(--ink-dim); margin-top: 10px; line-height: 1.6; }
+    .wallet-result .w-bal { color: var(--ink); font-weight: 600; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 15px; }
+    .wallet-result .w-usd { color: var(--signal); font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 600; }
+
+    .analyze-btn {
+      width: 100%; margin-top: 12px; padding: 10px 14px;
+      background: var(--ink); border: 1px solid var(--ink); color: var(--bg);
+      font-family: var(--sans); font-size: 12px; font-weight: 600;
+      letter-spacing: 0.5px; cursor: pointer; border-radius: 2px;
+      transition: all 0.15s; text-align: center;
+    }
+    .analyze-btn:hover { background: var(--signal); border-color: var(--signal); }
+
+    /* News summary in sidebar */
+    .news-desc { font-size: 11px; color: var(--ink-dim); line-height: 1.5; margin-top: 4px; display: -webkit-box; line-clamp: 2; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+    /* News tabs */
+    .news-tabs { display: flex; border-bottom: 1px solid var(--rule-2); padding: 0 18px; gap: 2px; }
+    .news-tab {
+      flex: 0 0 auto; padding: 8px 14px; font-size: 10px; text-align: center;
+      cursor: pointer; color: var(--ink-dim); border: none; background: none;
+      font-family: var(--sans); letter-spacing: 1.5px; font-weight: 600;
+      transition: color 0.15s; text-transform: uppercase;
+    }
+    .news-tab.active { color: var(--ink); border-bottom: 1.5px solid var(--signal); margin-bottom: -1px; }
+    .news-tab:hover { color: var(--ink); }
+
+    /* ═══════════════════════════════════════════════════════════════
+       NEW COMPONENTS — hero metrics, TEE strip, modals, sidebar tabs
+       ═══════════════════════════════════════════════════════════════ */
+
+    /* Hero metrics strip (in header) */
+    .hero-metrics { display: flex; align-items: baseline; gap: 0; }
+    .hero-metric {
+      padding: 0 18px; border-left: 1px solid var(--rule-2);
+      display: flex; flex-direction: column; gap: 2px;
+      min-width: 0;
+    }
+    .hero-metric:first-child { border-left: none; }
+    .hero-metric .hm-label {
+      font-size: 9px; color: var(--ink-dim); letter-spacing: 1.5px;
+      text-transform: uppercase; font-weight: 600;
+    }
+    .hero-metric .hm-value {
+      font-size: 15px; color: var(--ink); font-weight: 600;
+      font-family: var(--mono); font-variant-numeric: tabular-nums;
+      letter-spacing: -0.01em; line-height: 1;
+    }
+    .hero-metric .hm-value.up { color: var(--up); }
+    .hero-metric .hm-value.down { color: var(--down); }
+    .hero-metric .hm-delta {
+      font-size: 10px; font-family: var(--mono); font-variant-numeric: tabular-nums;
+      margin-left: 4px; font-weight: 500;
+    }
+    .hero-metric .hm-delta.up { color: var(--up); }
+    .hero-metric .hm-delta.down { color: var(--down); }
+
+    /* Header-right cluster (info, settings) */
+    .header-actions { display: flex; align-items: center; gap: 10px; }
+    .icon-btn {
+      width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;
+      background: transparent; border: 1px solid var(--rule); color: var(--ink-dim);
+      cursor: pointer; border-radius: 2px; transition: all 0.15s;
+      font-family: var(--sans); font-size: 14px; font-weight: 500;
+    }
+    .icon-btn:hover { border-color: var(--signal); color: var(--signal); }
+
+    /* TEE strip under header */
+    #tee-strip {
+      grid-area: tee;
+      background: var(--bg);
+      border-bottom: 1px solid var(--rule);
+      padding: 0 28px;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 16px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    #tee-strip:hover { background: var(--signal-soft); }
+    .tee-strip-left {
+      display: flex; align-items: baseline; gap: 10px;
+      color: var(--ink-2); font-size: 12px; letter-spacing: 0.2px;
+    }
+    .tee-strip-left .tee-diamond {
+      color: var(--signal); font-size: 11px;
+    }
+    .tee-strip-left em {
+      font-family: var(--serif); font-style: italic; font-weight: 600;
+      color: var(--signal); font-size: 13px;
+    }
+    .tee-strip-right {
+      font-family: var(--mono); font-size: 10px;
+      color: var(--ink-dim); letter-spacing: 0.5px;
+    }
+
+    /* ── Sidebar tabs ── */
+    .sidebar-tabs {
+      display: flex; border-bottom: 1px solid var(--rule);
+      background: var(--surface); position: sticky; top: 0; z-index: 5;
+    }
+    .sb-tab {
+      flex: 1; padding: 14px 8px; border: none; background: transparent;
+      color: var(--ink-dim); font-family: var(--sans); font-size: 10px;
+      font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase;
+      cursor: pointer; transition: all 0.15s; position: relative;
+      border-right: 1px solid var(--rule-2);
+    }
+    .sb-tab:last-child { border-right: none; }
+    .sb-tab:hover { color: var(--ink); }
+    .sb-tab.active { color: var(--ink); }
+    .sb-tab.active::after {
+      content: ''; position: absolute; bottom: -1px; left: 0; right: 0;
+      height: 1.5px; background: var(--signal);
+    }
+
+    .sb-panel { display: none; flex-direction: column; flex: 1; min-height: 0; }
+    .sb-panel.active { display: flex; }
+
+    /* Wallet link button (opens modal) */
+    .wallet-link-btn {
+      margin: 14px 18px; padding: 12px 14px;
+      background: var(--bg); border: 1px solid var(--rule); color: var(--ink);
+      font-family: var(--sans); font-size: 13px; font-weight: 500;
+      cursor: pointer; border-radius: 2px; transition: all 0.15s;
+      display: flex; align-items: center; justify-content: space-between;
+      letter-spacing: -0.01em;
+    }
+    .wallet-link-btn:hover { border-color: var(--signal); color: var(--signal); }
+    .wallet-link-btn .diamond { color: var(--signal); margin-right: 8px; }
+
+    /* Alerts panel (persistent, shown when any alerts) */
+    #alerts-panel {
+      border-top: 1px solid var(--rule); padding: 14px 18px;
+      flex-shrink: 0; display: none;
+    }
+    #alerts-panel.visible { display: block; }
+    #alerts-panel .a-panel-hdr {
+      font-size: 10px; color: var(--ink-dim); letter-spacing: 2px;
+      text-transform: uppercase; font-weight: 600; margin-bottom: 8px;
+      display: flex; justify-content: space-between; align-items: baseline;
+    }
+    #alerts-panel .a-count {
+      font-family: var(--serif); font-style: italic; font-weight: 600;
+      color: var(--signal); font-size: 12px; letter-spacing: 0; text-transform: none;
+    }
+
+    /* Empty state */
+    .empty-state {
+      padding: 40px 18px; text-align: center; color: var(--ink-dim);
+      font-size: 12px; font-family: var(--serif); font-style: italic; font-weight: 400;
+    }
+    .empty-state::before { content: '◌ '; color: var(--signal); font-style: normal; }
+
+    /* ── MODAL ── */
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(10,10,8,0.85);
+      z-index: 10001; display: none; align-items: center; justify-content: center;
+      padding: 20px; backdrop-filter: blur(6px);
+    }
+    .modal-backdrop.show { display: flex; animation: modalIn 0.2s ease; }
+    @keyframes modalIn { from{opacity:0} to{opacity:1} }
+
+    .modal {
+      background: var(--bg); border: 1px solid var(--rule);
+      max-width: 560px; width: 100%; max-height: 85vh; overflow-y: auto;
+      padding: 36px 40px; border-radius: 3px;
+      animation: modalSlide 0.25s cubic-bezier(0.2, 0.9, 0.3, 1);
+    }
+    @keyframes modalSlide { from{transform:translateY(20px);opacity:0} to{transform:translateY(0);opacity:1} }
+
+    .modal-eyebrow {
+      font-family: var(--serif); font-style: italic; font-weight: 600;
+      color: var(--signal); font-size: 14px; margin-bottom: 14px;
+    }
+    .modal-title {
+      font-size: 32px; font-weight: 500; letter-spacing: -0.025em;
+      color: var(--ink); margin-bottom: 20px; line-height: 1.1;
+    }
+    .modal-body { font-size: 14px; line-height: 1.65; color: var(--ink-2); }
+    .modal-body p { margin-bottom: 14px; }
+    .modal-body strong { color: var(--ink); font-weight: 600; }
+    .modal-body em { font-family: var(--serif); font-style: italic; font-weight: 600; color: var(--signal); }
+    .modal-body ul { padding-left: 20px; margin: 10px 0; }
+    .modal-body li { margin-bottom: 6px; }
+    .modal-body a { color: var(--signal); text-decoration: none; border-bottom: 1px solid var(--rule); }
+    .modal-body a:hover { border-color: var(--signal); }
+    .modal-body code { background: var(--surface); padding: 2px 7px; border-radius: 2px; border: 1px solid var(--rule); font-family: var(--mono); font-size: 12px; }
+
+    .modal-close {
+      position: absolute; top: 16px; right: 16px;
+      width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+      background: transparent; border: 1px solid var(--rule); color: var(--ink-dim);
+      cursor: pointer; border-radius: 2px; font-size: 16px; line-height: 1;
+    }
+    .modal-close:hover { border-color: var(--down); color: var(--down); }
+
+    /* Modal: wallet form */
+    .wallet-modal-input {
+      width: 100%; background: var(--surface); border: 1px solid var(--rule);
+      color: var(--ink); font-family: var(--mono); font-size: 13px;
+      padding: 12px 14px; outline: none; border-radius: 2px;
+      letter-spacing: 0; margin-bottom: 10px;
+    }
+    .wallet-modal-input:focus { border-color: var(--signal); }
+    .wallet-modal-input::placeholder { color: var(--ink-dim); }
+    .wallet-modal-actions { display: flex; gap: 8px; margin-top: 10px; }
+    .wallet-modal-actions button {
+      flex: 1; padding: 11px 16px; font-family: var(--sans);
+      font-size: 13px; font-weight: 600; cursor: pointer; border-radius: 2px;
+      letter-spacing: 0.3px; transition: all 0.15s;
+    }
+    .btn-secondary { background: transparent; border: 1px solid var(--rule); color: var(--ink-2); }
+    .btn-secondary:hover { border-color: var(--signal); color: var(--signal); }
+    .btn-primary { background: var(--ink); border: 1px solid var(--ink); color: var(--bg); }
+    .btn-primary:hover { background: var(--signal); border-color: var(--signal); }
+
+    /* Entry hover action */
+    .entry { position: relative; }
+    .entry-actions {
+      position: absolute; top: 18px; right: 0;
+      display: flex; gap: 4px; opacity: 0; transition: opacity 0.15s;
+    }
+    .entry:hover .entry-actions { opacity: 1; }
+    .entry-action-btn {
+      width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+      background: var(--surface); border: 1px solid var(--rule); color: var(--ink-dim);
+      cursor: pointer; border-radius: 2px; font-size: 12px;
+      transition: all 0.15s;
+    }
+    .entry-action-btn:hover { border-color: var(--signal); color: var(--signal); }
+
+    /* Demo card in welcome */
+    .demo-card {
+      margin-top: 36px; padding: 24px 28px;
+      background: var(--surface); border: 1px solid var(--rule); border-radius: 3px;
+      max-width: 720px; width: 100%;
+      text-align: left;
+    }
+    .demo-card .demo-eyebrow {
+      font-family: var(--serif); font-style: italic; font-weight: 600;
+      color: var(--signal); font-size: 12px; margin-bottom: 10px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .demo-card .demo-eyebrow::before {
+      content: ''; width: 20px; height: 1px; background: var(--signal);
+    }
+    .demo-card .demo-q {
+      font-family: var(--serif); font-style: italic; font-weight: 600;
+      font-size: 17px; color: var(--ink-2); margin-bottom: 16px; line-height: 1.35;
+    }
+    .demo-card .demo-a {
+      font-size: 13px; color: var(--ink); line-height: 1.6;
+      padding-top: 16px; border-top: 1px solid var(--rule-2);
+    }
+    .demo-card .demo-a strong { color: var(--signal); font-weight: 600; }
+    .demo-card .demo-proof {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-family: var(--mono); font-size: 10px; color: var(--ink-dim);
+      margin-top: 14px; padding: 5px 10px;
+      border: 1px solid var(--rule); border-radius: 2px;
+    }
+    .demo-card .demo-proof::before { content: '◆'; color: var(--signal); }
+
+    /* Pulse card */
+    .pulse-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 0; margin-top: 4px;
+      border-top: 1px solid var(--rule-2);
+      border-bottom: 1px solid var(--rule-2);
+    }
+    .pulse-cell {
+      padding: 18px 16px 16px;
+      border-right: 1px solid var(--rule-2);
+    }
+    .pulse-cell:last-child { border-right: none; }
+    .pulse-label {
+      font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--ink-dim); margin-bottom: 8px;
+    }
+    .pulse-value {
+      font-size: 22px; font-weight: 500; color: var(--ink);
+      letter-spacing: -0.01em;
+    }
+    .pulse-delta {
+      font-size: 12px; margin-top: 4px; color: var(--ink-2);
+    }
+    .pulse-delta.up { color: var(--up); }
+    .pulse-delta.down { color: var(--down); }
+    .pulse-cta {
+      display: flex; align-items: center; gap: 16px;
+      padding: 16px 4px 0; font-size: 13px; color: var(--ink-2);
+      line-height: 1.5;
+    }
+    .pulse-cta strong { color: var(--signal); font-weight: 600; }
+    .pulse-btn {
+      margin-left: auto; flex-shrink: 0;
+      background: var(--signal); color: var(--bg); border: none;
+      padding: 9px 16px; font-family: var(--sans); font-size: 12px;
+      font-weight: 600; letter-spacing: 0.02em; cursor: pointer;
+      border-radius: 2px; transition: background 0.15s;
+    }
+    .pulse-btn:hover { background: var(--signal-bright); }
+
+    /* Footer bar (part of grid) */
+    #footer {
+      grid-area: footer;
+      background: var(--bg); border-top: 1px solid var(--rule-2);
+      display: flex; align-items: center; justify-content: center; gap: 18px;
+      font-size: 9.5px; color: var(--ink-dim); letter-spacing: 1.2px;
+      text-transform: uppercase; font-weight: 500;
+      /* Compensate for sidebar so content aligns with chat column */
+      padding-right: 300px;
+    }
+    #footer a { color: var(--ink-dim); text-decoration: none; transition: color 0.15s; }
+    #footer a:hover { color: var(--signal); }
+    #footer .sep { color: var(--rule); }
+    @media (max-width: 960px) { #footer { gap: 10px; font-size: 9px; padding-right: 0; } }
+
+    /* Shortcut kbd */
+    kbd {
+      font-family: var(--mono); font-size: 10px;
+      background: var(--surface); border: 1px solid var(--rule);
+      padding: 1px 5px; border-radius: 2px; color: var(--ink-2);
+    }
+
+    /* Update grid to include tee strip */
+    #shell.with-tee {
+      grid-template-rows: 28px 60px 36px auto 1fr 72px 26px;
+      grid-template-areas:
+        "ticker  ticker"
+        "header  header"
+        "tee     tee"
+        "alerts  alerts"
+        "chat    market"
+        "input   input"
+        "footer  footer";
+    }
+
+    /* Responsive: sidebar becomes drawer on small screens */
+    @media (max-width: 960px) {
+      #shell, #shell.with-tee {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+          "ticker"
+          "header"
+          "tee"
+          "alerts"
+          "chat"
+          "input"
+          "footer";
+      }
+      #market { display: none; }
+      .hero-metrics { display: none; }
+      #messages { padding: 24px 20px 80px; }
+      .welcome-title { font-size: 36px !important; }
+      .demo-card { padding: 18px 20px; }
+      #input-bar { padding-right: 32px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Flash banner for triggered alerts -->
+  <div id="flash-banner"></div>
+
+  <div id="shell" class="with-tee">
+
+    <!-- TICKER -->
+    <div id="ticker"><div class="ticker-track" id="ticker-track"><div class="ticker-item"><span class="t-name">Loading markets</span></div></div></div>
+
+    <!-- HEADER: brand + hero metrics + actions -->
+    <header id="header">
+      <div class="brand" onclick="goHome()" title="Back to home" style="cursor:pointer">
+        <div class="brand-logo">◆</div>
+        <div>
+          <div class="brand-name">Kryos</div>
+          <div class="brand-sub">Verified market intelligence</div>
+        </div>
+      </div>
+
+      <div class="hero-metrics" id="hero-metrics">
+        <div class="hero-metric">
+          <div class="hm-label">BTC</div>
+          <div><span class="hm-value" id="hm-btc">—</span><span class="hm-delta" id="hm-btc-chg">—</span></div>
+        </div>
+        <div class="hero-metric">
+          <div class="hm-label">ETH</div>
+          <div><span class="hm-value" id="hm-eth">—</span><span class="hm-delta" id="hm-eth-chg">—</span></div>
+        </div>
+        <div class="hero-metric">
+          <div class="hm-label">Total Mcap</div>
+          <div><span class="hm-value" id="g-mcap">—</span><span class="hm-delta" id="g-mcap-chg">—</span></div>
+        </div>
+        <div class="hero-metric">
+          <div class="hm-label">Fear &amp; Greed</div>
+          <div><span class="hm-value" id="g-fng-num">—</span><span class="fng-label" id="g-fng-label" style="margin-left:6px;font-size:10px">—</span></div>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <span id="alert-status" style="display:none;margin-right:6px;font-family:var(--serif);font-style:italic;font-weight:600;color:var(--signal);font-size:13px">
+          <span id="alert-count">0</span> watching
+        </span>
+        <button class="icon-btn" onclick="openModal('tee-modal')" title="About TEE verification">?</button>
+        <button class="icon-btn" onclick="openModal('about-modal')" title="About Kryos">i</button>
+      </div>
+    </header>
+
+    <!-- TEE trust strip -->
+    <div id="tee-strip" onclick="openModal('tee-modal')">
+      <div class="tee-strip-left">
+        <span class="tee-diamond">◆</span>
+        <span>Every answer is <em>cryptographically verified</em> on-chain via OpenGradient TEE</span>
+      </div>
+      <div class="tee-strip-right">Learn how →</div>
+    </div>
+
+    <!-- ALERTS BAR (hidden by default) -->
+    <div id="alerts-bar">
+      <div id="alert-chips" style="display:flex;gap:6px"></div>
+    </div>
+
+    <!-- CHAT -->
+    <main id="chat">
+      <div id="messages">
+        <div class="welcome" id="welcome-screen">
+          <div class="welcome-title"></div>
+          <div class="welcome-sub">10 verified tools · Multi-chain EVM · Real-time data</div>
+          <div class="cmd-list">
+            <button class="cmd-btn" onclick="suggest(this)">Analyze Bitcoin right now</button>
+            <button class="cmd-btn" onclick="suggest(this)">Show me the Ethereum chart, 7 days</button>
+            <button class="cmd-btn" onclick="suggest(this)">What are the gas fees across chains?</button>
+            <button class="cmd-btn" onclick="suggest(this)">Current market sentiment</button>
+            <button class="cmd-btn" onclick="suggest(this)">Best DeFi yields on Aave</button>
+            <button class="cmd-btn" onclick="suggest(this)">Top 5 coins by market cap</button>
+            <button class="cmd-btn" onclick="suggest(this)">Alert me when BTC crosses 80k</button>
+            <button class="cmd-btn" onclick="suggest(this)">ETH vs SOL — which to hold?</button>
+          </div>
+
+          <!-- Live market pulse (real data, fetched on load) -->
+          <div class="demo-card" id="pulse-card">
+            <div class="demo-eyebrow">Market pulse · right now</div>
+            <div class="pulse-grid">
+              <div class="pulse-cell">
+                <div class="pulse-label">Bitcoin</div>
+                <div class="pulse-value mono" id="pulse-btc">—</div>
+                <div class="pulse-delta mono" id="pulse-btc-chg">—</div>
+              </div>
+              <div class="pulse-cell">
+                <div class="pulse-label">Ethereum</div>
+                <div class="pulse-value mono" id="pulse-eth">—</div>
+                <div class="pulse-delta mono" id="pulse-eth-chg">—</div>
+              </div>
+              <div class="pulse-cell">
+                <div class="pulse-label">Sentiment</div>
+                <div class="pulse-value mono" id="pulse-fg">—</div>
+                <div class="pulse-delta" id="pulse-fg-label" style="color:var(--ink-dim)">—</div>
+              </div>
+            </div>
+            <div class="pulse-cta">
+              Ask anything about what you see — every answer is <strong>TEE-verified on-chain</strong>.
+              <button class="pulse-btn" onclick="suggest({textContent:'Analyze the current market — is now a good entry?'})">Analyze now →</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- MARKET SIDEBAR (tabbed) -->
+    <aside id="market">
+
+      <!-- Tabs -->
+      <div class="sidebar-tabs">
+        <button class="sb-tab active" data-tab="markets" onclick="switchSbTab('markets')">Markets</button>
+        <button class="sb-tab" data-tab="gas" onclick="switchSbTab('gas')">Gas</button>
+        <button class="sb-tab" data-tab="news" onclick="switchSbTab('news')">News</button>
+      </div>
+
+      <!-- Wallet quick access -->
+      <button class="wallet-link-btn" onclick="openModal('wallet-modal')">
+        <span><span class="diamond">◆</span>Check wallet</span>
+        <span style="color:var(--ink-dim);font-size:11px">5 chains →</span>
+      </button>
+
+      <!-- Panel: Markets (top coins) -->
+      <div class="sb-panel active" id="panel-markets" style="flex:1;overflow-y:auto">
+        <div class="panel-hdr"><span>Top by market cap</span><span class="live">live</span></div>
+        <div id="mkt-list">
+          <div class="mkt-row"><div style="height:11px;width:80%" class="skel"></div><div style="height:9px;width:50%;margin-top:5px" class="skel"></div></div>
+          <div class="mkt-row"><div style="height:11px;width:70%" class="skel"></div><div style="height:9px;width:45%;margin-top:5px" class="skel"></div></div>
+          <div class="mkt-row"><div style="height:11px;width:85%" class="skel"></div><div style="height:9px;width:55%;margin-top:5px" class="skel"></div></div>
+        </div>
+      </div>
+
+      <!-- Panel: Gas -->
+      <div class="sb-panel" id="panel-gas" style="flex:1;overflow-y:auto">
+        <div class="panel-hdr">
+          <span>Gas <span style="color:var(--ink-dim);text-transform:none;letter-spacing:0;font-weight:400">· gwei</span></span>
+          <span id="gas-ts" style="font-size:10px;color:var(--ink-dim);letter-spacing:0;text-transform:none;font-family:var(--mono)">—</span>
+        </div>
+        <div class="widget" id="gas-widget">
+          <div class="gas-grid" id="gas-grid">
+            <div class="gas-cell"><span class="c-name">ETH</span><span class="c-val">—</span></div>
+            <div class="gas-cell"><span class="c-name">BASE</span><span class="c-val">—</span></div>
+            <div class="gas-cell"><span class="c-name">POLY</span><span class="c-val">—</span></div>
+            <div class="gas-cell"><span class="c-name">ARB</span><span class="c-val">—</span></div>
+          </div>
+          <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--rule-2);font-size:11px;color:var(--ink-dim);line-height:1.5">
+            <div style="font-family:var(--serif);font-style:italic;font-weight:600;color:var(--signal);margin-bottom:6px;font-size:12px">Tip</div>
+            L2s (Base, Arbitrum) usually 50-200× cheaper than Ethereum mainnet for the same swap.
+          </div>
+        </div>
+      </div>
+
+      <!-- Panel: News -->
+      <div class="sb-panel" id="panel-news" style="flex:1;overflow-y:auto">
+        <div class="panel-hdr" style="border-bottom:none">
+          <span>Crypto headlines</span>
+          <span id="news-age" style="font-size:10px;color:var(--ink-dim);letter-spacing:0;text-transform:none;font-family:var(--mono)">—</span>
+        </div>
+        <div class="news-tabs">
+          <button class="news-tab active" id="tab-cointelegraph" onclick="switchNews('cointelegraph')">Cointelegraph</button>
+          <button class="news-tab" id="tab-coindesk" onclick="switchNews('coindesk')">CoinDesk</button>
+          <button class="news-tab" id="tab-decrypt" onclick="switchNews('decrypt')">Decrypt</button>
+        </div>
+        <div id="news-list" style="overflow-y:auto;flex:1"></div>
+      </div>
+
+      <!-- Alerts panel (always at bottom, shown when any) -->
+      <div id="alerts-panel">
+        <div class="a-panel-hdr">
+          <span>Active alerts</span>
+          <span class="a-count" id="alerts-panel-count">0</span>
+        </div>
+        <div id="alerts-list"></div>
+      </div>
+
+      <!-- Hidden legacy anchors for existing JS (kept to avoid JS refactor) -->
+      <span id="mkt-ts" style="display:none">—</span>
+      <span id="alerts-section" style="display:none"></span>
+      <span id="g-btcd" style="display:none">—</span>
+      <span id="global-ts" style="display:none"></span>
+      <span id="g-fng-fill" style="display:none"></span>
+      <span id="g-fng-needle" style="display:none"></span>
+      <input id="wallet-addr" style="display:none" />
+      <span id="wallet-result" style="display:none"></span>
+      <button id="analyze-btn" style="display:none" onclick="analyzePortfolio()"></button>
+
+    </aside>
+
+    <!-- INPUT -->
+    <div id="input-bar">
+      <div class="input-inner">
+        <div class="prompt-prefix">Ask</div>
+        <textarea id="cmd-input" placeholder="Anything about crypto, DeFi, wallets, gas…" rows="1"></textarea>
+        <div class="input-hint"><kbd>⏎</kbd> send · <kbd>⌘K</kbd> focus · <kbd>Esc</kbd> clear</div>
+        <button id="exec-btn" onclick="sendMessage()">Send</button>
+      </div>
+    </div>
+
+    <!-- FOOTER -->
+    <div id="footer">
+      <a href="https://opengradient.ai" target="_blank" rel="noopener">OpenGradient</a>
+      <span class="sep">·</span>
+      <a href="https://github.com" target="_blank" rel="noopener">Source</a>
+      <span class="sep">·</span>
+      <a href="#" onclick="openModal('tee-modal');return false">How TEE works</a>
+      <span class="sep">·</span>
+      <a href="#" onclick="openModal('about-modal');return false">About</a>
+    </div>
+
+  </div>
+
+  <!-- ── MODALS ── -->
+  <div class="modal-backdrop" id="tee-modal" onclick="if(event.target===this)closeModal('tee-modal')">
+    <div class="modal" style="position:relative">
+      <button class="modal-close" onclick="closeModal('tee-modal')">×</button>
+      <div class="modal-eyebrow">Trust, but verify</div>
+      <div class="modal-title">How TEE verification works</div>
+      <div class="modal-body">
+        <p>Every answer Kryos gives is run inside a <strong>Trusted Execution Environment</strong> on OpenGradient infrastructure — a secure enclave where neither the hosting provider nor anyone else can tamper with the computation.</p>
+        <p>After each answer, a cryptographic proof of execution is posted on-chain. You can click <em>◆ TEE verified</em> under any response to open its transaction on OpenGradient explorer and independently confirm:</p>
+        <ul>
+          <li>The exact model that ran</li>
+          <li>The exact input prompt</li>
+          <li>The exact output returned to you</li>
+          <li>Timestamp &amp; attestation signature</li>
+        </ul>
+        <p>This means you don't have to trust our server, our prompts, or our logs — <strong>you can verify</strong> what the model actually said, cryptographically, for every single answer.</p>
+        <p style="color:var(--ink-dim);font-size:12px;margin-top:20px;padding-top:16px;border-top:1px solid var(--rule)">Learn more → <a href="https://opengradient.ai" target="_blank" rel="noopener">opengradient.ai</a></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="about-modal" onclick="if(event.target===this)closeModal('about-modal')">
+    <div class="modal" style="position:relative">
+      <button class="modal-close" onclick="closeModal('about-modal')">×</button>
+      <div class="modal-eyebrow">About</div>
+      <div class="modal-title">Kryos</div>
+      <div class="modal-body">
+        <p>An <em>editorial AI terminal for crypto</em> — not a chat wrapper, not a dashboard. A place to ask real questions and get answers that come with proofs.</p>
+        <p><strong>What it does:</strong></p>
+        <ul>
+          <li>Real-time prices, charts, sentiment, gas, news — 10 verified tools</li>
+          <li>Multi-chain wallet portfolio analysis (ETH, Base, Arbitrum, Optimism, Polygon)</li>
+          <li>Price alerts with desktop notifications</li>
+          <li>Every response cryptographically verified on OpenGradient TEE</li>
+        </ul>
+        <p><strong>Disclaimer:</strong> This is <em>not financial advice</em>. AI can be wrong. Verify the proofs, use your own judgement, never invest what you can't lose.</p>
+        <p style="color:var(--ink-dim);font-size:12px;margin-top:20px;padding-top:16px;border-top:1px solid var(--rule)">
+          Shortcuts: <kbd>⌘K</kbd> focus input · <kbd>↑</kbd> last query · <kbd>Esc</kbd> clear input or close modal
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="wallet-modal" onclick="if(event.target===this)closeModal('wallet-modal')">
+    <div class="modal" style="position:relative;max-width:480px">
+      <button class="modal-close" onclick="closeModal('wallet-modal')">×</button>
+      <div class="modal-eyebrow">Wallet lookup · 5 chains</div>
+      <div class="modal-title">Check any address</div>
+      <div class="modal-body">
+        <p style="color:var(--ink-dim);font-size:13px">Scan an EVM wallet across Ethereum, Base, Arbitrum, Optimism &amp; Polygon. Get native balances, ERC-20 tokens, and optional AI portfolio analysis.</p>
+        <input class="wallet-modal-input" id="wallet-modal-addr" placeholder="0x… address" spellcheck="false" />
+        <div class="wallet-modal-actions">
+          <button class="btn-secondary" onclick="modalCheckWallet()">Balance only</button>
+          <button class="btn-primary" onclick="modalAnalyzeWallet()">Full AI analysis →</button>
+        </div>
+        <div id="wallet-modal-result" style="margin-top:14px;font-size:13px;color:var(--ink-dim);line-height:1.5"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ── State ─────────────────────────────────────────────────────────────────
+    let history    = [];
+    let streaming  = false;
+    let botText    = '';
+    let activeAlerts = [];
+    let currentNewsSource = 'cointelegraph';
+    let userQueryHistory = []; // for ↑ recall
+    let userQueryIdx = -1;
+
+    // ── Modals ────────────────────────────────────────────────────────────────
+    function openModal(id) {
+      const m = document.getElementById(id);
+      if (m) m.classList.add('show');
+    }
+    function closeModal(id) {
+      const m = document.getElementById(id);
+      if (m) m.classList.remove('show');
+    }
+    function closeAllModals() {
+      document.querySelectorAll('.modal-backdrop.show').forEach(m => m.classList.remove('show'));
+    }
+
+    // ── Sidebar tabs ──────────────────────────────────────────────────────────
+    function switchSbTab(name) {
+      document.querySelectorAll('.sb-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+      document.querySelectorAll('.sb-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+    }
+
+    // ── Wallet modal handlers ─────────────────────────────────────────────────
+    async function modalCheckWallet() {
+      const addr = document.getElementById('wallet-modal-addr').value.trim();
+      const out = document.getElementById('wallet-modal-result');
+      if (!/^0x[a-fA-F0-9]{40}$/.test(addr)) {
+        out.innerHTML = '<span style="color:var(--down)">Invalid address</span>';
+        return;
+      }
+      out.innerHTML = 'Querying RPC…';
+      try {
+        const r = await fetch(`/api/wallet?address=${addr}`);
+        const d = await r.json();
+        if (d.error) { out.innerHTML = `<span style="color:var(--down)">${esc(d.error)}</span>`; return; }
+        out.innerHTML = `
+          <div style="font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:17px;color:var(--ink);font-weight:600">${d.balance_eth} ETH</div>
+          <div style="font-family:var(--mono);color:var(--signal);font-weight:600;margin-top:4px">≈ $${d.usd_value.toLocaleString()}</div>
+          <div style="color:var(--ink-dim);font-size:11px;margin-top:8px;font-family:var(--mono)">${addr.slice(0,6)}…${addr.slice(-4)} · ${d.chain}</div>
+        `;
+      } catch {
+        out.innerHTML = '<span style="color:var(--down)">Request failed</span>';
+      }
+    }
+
+    function modalAnalyzeWallet() {
+      const addr = document.getElementById('wallet-modal-addr').value.trim();
+      if (!/^0x[a-fA-F0-9]{40}$/.test(addr)) {
+        document.getElementById('wallet-modal-result').innerHTML = '<span style="color:var(--down)">Invalid address</span>';
+        return;
+      }
+      closeModal('wallet-modal');
+      const cmd = `Analyze this wallet across all EVM chains (Ethereum, Base, Arbitrum, Optimism, Polygon). Give me risk + potential assessment for each token: ${addr}`;
+      document.getElementById('cmd-input').value = cmd;
+      sendMessage();
+    }
+
+    // ── Copy entry ────────────────────────────────────────────────────────────
+    function copyEntry(id) {
+      const body = document.getElementById(`${id}-body`);
+      if (!body) return;
+      const content = body.querySelector('.ai-content');
+      const text = content ? content.innerText : body.innerText;
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = document.querySelector(`#${id} .entry-action-btn`);
+        if (btn) { const o = btn.textContent; btn.textContent = '✓'; setTimeout(() => btn.textContent = o, 1200); }
+      });
+    }
+
+    // Snapshot of the welcome screen so we can restore on "go home"
+    let WELCOME_HTML = '';
+
+    function goHome() {
+      const msgs = document.getElementById('messages');
+      if (!msgs) return;
+      msgs.innerHTML = WELCOME_HTML;
+      // Re-hydrate pulse card with latest data
+      loadMarket();
+      loadGlobal();
+      const input = document.getElementById('cmd-input');
+      if (input) { input.value = ''; input.focus(); }
+    }
+
+    // ── Init ──────────────────────────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', () => {
+      // Capture welcome-screen HTML for later restore
+      const welcome = document.getElementById('welcome-screen');
+      if (welcome) WELCOME_HTML = welcome.outerHTML;
+      setFaviconBadge(false); // Set base favicon
+      loadMarket();
+      loadGlobal();
+      loadGas();
+      loadNews();
+      setupInput();
+      setupWallet();
+      setupKeyboard();
+      restoreHistory();
+      // Request browser notification permission on first user interaction
+      const askPerm = () => {
+        if ('Notification' in window && Notification.permission === 'default') {
+          Notification.requestPermission().catch(() => {});
+        }
+        document.removeEventListener('click', askPerm);
+        document.removeEventListener('keydown', askPerm);
+      };
+      document.addEventListener('click', askPerm);
+      document.addEventListener('keydown', askPerm);
+      setInterval(loadMarket,   60000);
+      setInterval(loadGlobal,   90000);
+      setInterval(loadGas,      45000);
+      setInterval(checkAlerts,  30000);
+      setInterval(loadNews,    300000);
+    });
+
+    // ── Global metrics (feeds hero metric strip in header) ────────────────────
+    async function loadGlobal() {
+      try {
+        const r = await fetch('/api/global');
+        const d = await r.json();
+        // Total Mcap
+        if (d.total_mcap) document.getElementById('g-mcap').textContent = '$' + fmtBig(d.total_mcap);
+        const chg = d.mcap_change_24h || 0;
+        const chgEl = document.getElementById('g-mcap-chg');
+        chgEl.textContent = (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%';
+        chgEl.className = 'hm-delta ' + (chg >= 0 ? 'up' : 'down');
+        // BTC dominance (hidden legacy)
+        const btcdEl = document.getElementById('g-btcd');
+        if (btcdEl) btcdEl.textContent = d.btc_dominance ? d.btc_dominance.toFixed(2) + '%' : '—';
+        // Fear & Greed
+        if (d.fear_greed != null) {
+          const fng = d.fear_greed;
+          const numEl = document.getElementById('g-fng-num');
+          const lbl = document.getElementById('g-fng-label');
+          if (numEl) numEl.textContent = fng;
+          if (lbl) {
+            lbl.textContent = (d.fear_greed_label || '').replace(/\b\w/g, c => c.toUpperCase());
+            lbl.className = 'fng-label ' + (d.fear_greed_label || 'neutral').toLowerCase().replace(/\s+/g, '-');
+          }
+          const fill = document.getElementById('g-fng-fill');
+          const needle = document.getElementById('g-fng-needle');
+          if (fill) fill.style.width = fng + '%';
+          if (needle) needle.style.left = fng + '%';
+
+          // Feed pulse card sentiment
+          const pFg = document.getElementById('pulse-fg');
+          const pFgL = document.getElementById('pulse-fg-label');
+          if (pFg) pFg.textContent = fng;
+          if (pFgL) pFgL.textContent = (d.fear_greed_label || '').replace(/\b\w/g, c => c.toUpperCase()) + ' · Fear & Greed';
+        }
+      } catch {}
+    }
+
+    function fmtBig(n) {
+      if (n >= 1e12) return (n / 1e12).toFixed(2) + 'T';
+      if (n >= 1e9)  return (n / 1e9).toFixed(2)  + 'B';
+      if (n >= 1e6)  return (n / 1e6).toFixed(2)  + 'M';
+      return n.toLocaleString();
+    }
+
+    // ── Gas widget ────────────────────────────────────────────────────────────
+    async function loadGas() {
+      try {
+        const r = await fetch('/api/gas');
+        const d = await r.json();
+        const g = d.gas || {};
+        const cells = [
+          ['ETH',  g.ethereum?.gwei, 30, 60],
+          ['BASE', g.base?.gwei,     0.5, 2],
+          ['POLY', g.polygon?.gwei,  50, 150],
+          ['ARB',  g.arbitrum?.gwei, 0.5, 2],
+        ];
+        document.getElementById('gas-grid').innerHTML = cells.map(([name, gwei, mid, hi]) => {
+          if (gwei == null) return `<div class="gas-cell"><span class="c-name">${name}</span><span class="c-val">—</span></div>`;
+          const cls = gwei >= hi ? 'hi' : gwei >= mid ? 'md' : '';
+          return `<div class="gas-cell"><span class="c-name">${name}</span><span class="c-val ${cls}">${gwei.toFixed(gwei < 1 ? 3 : 1)}</span></div>`;
+        }).join('');
+        document.getElementById('gas-ts').textContent = new Date().toLocaleTimeString();
+      } catch {}
+    }
+
+    // ── Wallet checker ────────────────────────────────────────────────────────
+    function setupWallet() {
+      const inp = document.getElementById('wallet-addr');
+      if (inp) inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); checkWallet(); } });
+      const modalInp = document.getElementById('wallet-modal-addr');
+      if (modalInp) modalInp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); modalCheckWallet(); } });
+    }
+
+    function analyzePortfolio() {
+      const addr = document.getElementById('wallet-addr').value.trim();
+      if (!addr) {
+        document.getElementById('wallet-result').innerHTML = '<span style="color:var(--red)">⚠ Enter an address first</span>';
+        return;
+      }
+      if (!/^0x[a-fA-F0-9]{40}$/.test(addr)) {
+        document.getElementById('wallet-result').innerHTML = '<span style="color:var(--red)">⚠ Invalid address</span>';
+        return;
+      }
+      // Send as chat command — AI scans ETH + Base + Arbitrum + Optimism + Polygon
+      const cmd = `Analyze this wallet across all EVM chains (Ethereum, Base, Arbitrum, Optimism, Polygon). Give me risk + potential assessment for each token: ${addr}`;
+      document.getElementById('cmd-input').value = cmd;
+      sendMessage();
+    }
+
+    async function checkWallet() {
+      const inp = document.getElementById('wallet-addr');
+      const out = document.getElementById('wallet-result');
+      const addr = inp.value.trim();
+      if (!addr) return;
+      if (!/^0x[a-fA-F0-9]{40}$/.test(addr)) {
+        out.innerHTML = '<span style="color:var(--red)">⚠ Invalid address</span>';
+        return;
+      }
+      out.innerHTML = '<span style="color:var(--muted)">Querying RPC…</span>';
+      try {
+        const r = await fetch(`/api/wallet?address=${addr}`);
+        const d = await r.json();
+        if (d.error) {
+          out.innerHTML = `<span style="color:var(--red)">⚠ ${esc(d.error)}</span>`;
+          return;
+        }
+        out.innerHTML = `
+          <div><span class="w-bal">${d.balance_eth} ETH</span></div>
+          <div>≈ <span class="w-usd">$${d.usd_value.toLocaleString()}</span></div>
+          <div style="color:var(--dim);font-size:9px">${addr.slice(0,6)}…${addr.slice(-4)} · ${d.chain}</div>
+        `;
+      } catch (e) {
+        out.innerHTML = '<span style="color:var(--red)">⚠ Request failed</span>';
+      }
+    }
+
+    // ── Market ────────────────────────────────────────────────────────────────
+    let marketCoins = [];
+
+    async function loadMarket() {
+      try {
+        const r = await fetch('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=10&page=1&sparkline=false');
+        marketCoins = await r.json();
+        renderMarket(marketCoins);
+        renderTicker(marketCoins);
+      } catch {
+        document.getElementById('mkt-list').innerHTML = '<div style="padding:14px;font-size:10px;color:var(--dim)">⚠ UNAVAILABLE</div>';
+      }
+    }
+
+    function renderMarket(coins) {
+      const list = document.getElementById('mkt-list');
+      list.innerHTML = coins.map(c => {
+        const ch   = c.price_change_percentage_24h || 0;
+        const cls  = ch >= 0 ? 'up' : 'down';
+        const sign = ch >= 0 ? '▲' : '▼';
+        return `<div class="mkt-row" onclick="askCoin('${c.id}')">
+          <div class="mkt-top">
+            <div><div class="mkt-sym">${c.symbol.toUpperCase()}</div><div class="mkt-name">${c.name}</div></div>
+            <div><div class="mkt-price">$${fmtP(c.current_price)}</div><div class="mkt-chg ${cls}">${sign}${Math.abs(ch).toFixed(2)}%</div></div>
+          </div>
+        </div>`;
+      }).join('');
+      const ts = document.getElementById('mkt-ts');
+      if (ts) ts.textContent = new Date().toLocaleTimeString();
+
+      // Feed hero metrics: BTC + ETH
+      const btc = coins.find(c => c.id === 'bitcoin');
+      const eth = coins.find(c => c.id === 'ethereum');
+      if (btc) updateHeroMetric('hm-btc', 'hm-btc-chg', btc.current_price, btc.price_change_percentage_24h);
+      if (eth) updateHeroMetric('hm-eth', 'hm-eth-chg', eth.current_price, eth.price_change_percentage_24h);
+
+      // Feed welcome pulse card
+      if (btc) updatePulseCell('pulse-btc', 'pulse-btc-chg', btc.current_price, btc.price_change_percentage_24h);
+      if (eth) updatePulseCell('pulse-eth', 'pulse-eth-chg', eth.current_price, eth.price_change_percentage_24h);
+    }
+
+    function updatePulseCell(valId, deltaId, price, chg) {
+      const v = document.getElementById(valId);
+      const d = document.getElementById(deltaId);
+      if (!v || !d) return;
+      v.textContent = '$' + (price >= 1000 ? price.toLocaleString('en-US', {maximumFractionDigits: 0}) : price.toFixed(2));
+      const up = (chg || 0) >= 0;
+      d.textContent = (up ? '▲ +' : '▼ ') + (chg || 0).toFixed(2) + '% · 24h';
+      d.className = 'pulse-delta mono ' + (up ? 'up' : 'down');
+    }
+
+    function updateHeroMetric(valId, deltaId, price, chg) {
+      const v = document.getElementById(valId);
+      const d = document.getElementById(deltaId);
+      if (!v || !d) return;
+      v.textContent = '$' + (price >= 1000 ? (price/1000).toFixed(1) + 'k' : price.toFixed(2));
+      const up = (chg || 0) >= 0;
+      d.textContent = (up ? '+' : '') + (chg || 0).toFixed(2) + '%';
+      d.className = 'hm-delta ' + (up ? 'up' : 'down');
+    }
+
+    function renderTicker(coins) {
+      const items = coins.map(c => {
+        const ch = c.price_change_percentage_24h || 0;
+        const cls = ch >= 0 ? 't-up' : 't-down';
+        return `<div class="ticker-item"><span class="t-name">${c.symbol.toUpperCase()}</span><span class="t-price">$${fmtP(c.current_price)}</span><span class="${cls}">${ch >= 0 ? '▲' : '▼'}${Math.abs(ch).toFixed(2)}%</span></div>`;
+      }).join('');
+      document.getElementById('ticker-track').innerHTML = items + items;
+    }
+
+    function fmtP(p) {
+      if (p >= 1000) return p.toLocaleString('en-US', {maximumFractionDigits: 2});
+      if (p >= 1)    return p.toFixed(3);
+      return p.toFixed(6);
+    }
+
+    function askCoin(id) {
+      document.getElementById('cmd-input').value = `analyze ${id} — give me trading signals`;
+      document.getElementById('cmd-input').focus();
+    }
+
+    // ── News ───────────────────────────────────────────────────────────────────────────
+    async function loadNews(source) {
+      source = source || currentNewsSource;
+      const list = document.getElementById('news-list');
+      list.innerHTML = '<div style="padding:8px 14px;font-size:9px;color:var(--dim)">LOADING…</div>';
+      try {
+        const r    = await fetch(`/api/news?source=${source}&limit=5`);
+        const data = await r.json();
+        renderNewsSidebar(data.articles || []);
+        document.getElementById('news-age').textContent = new Date().toLocaleTimeString();
+      } catch {
+        list.innerHTML = '<div style="padding:8px 14px;font-size:9px;color:var(--dim)">⚠ UNAVAILABLE</div>';
+      }
+    }
+
+    function switchNews(source) {
+      currentNewsSource = source;
+      document.querySelectorAll('.news-tab').forEach(t => t.classList.remove('active'));
+      document.getElementById(`tab-${source}`)?.classList.add('active');
+      loadNews(source);
+    }
+
+    function renderNewsSidebar(articles) {
+      const list = document.getElementById('news-list');
+      if (!articles.length) { list.innerHTML = '<div style="padding:8px 14px;font-size:9px;color:var(--dim)">No articles</div>'; return; }
+      list.innerHTML = articles.map(a => {
+        const d = a.date ? new Date(a.date).toLocaleDateString() : '';
+        const sum = a.summary ? `<div class="news-desc">${esc(a.summary)}</div>` : '';
+        return `<div class="news-card" onclick="window.open('${esc(a.link)}','_blank')">
+          <div class="news-title">${esc(a.title)}</div>
+          ${sum}
+          <div class="news-meta"><span class="news-src">${(a.source||'').replace(/\b\w/g, c=>c.toUpperCase())}</span>${d ? ' · ' + d : ''}</div>
+        </div>`;
+      }).join('');
+    }
+
+    // ── Alerts ────────────────────────────────────────────────────────────────
+    async function checkAlerts() {
+      if (activeAlerts.length === 0) return;
+      try {
+        const r    = await fetch('/api/alerts/check');
+        const data = await r.json();
+        if (data.triggered && data.triggered.length > 0) {
+          data.triggered.forEach(a => showAlertTriggered(a));
+          activeAlerts = activeAlerts.filter(al => !data.triggered.find(t => t.id === al.id));
+          renderAlertChips();
+        }
+      } catch {}
+    }
+
+    function showAlertTriggered(alert) {
+      const coin = alert.coin.toUpperCase();
+      const price = '$' + fmtP(alert.current_price);
+      const target = '$' + alert.target_price.toLocaleString();
+      const msg = `🔔 ${coin} ${alert.condition} ${target} — NOW AT ${price}`;
+
+      // 1. Flash banner (fixed top, 4s)
+      showFlashBanner(msg);
+
+      // 2. Browser desktop notification
+      if ('Notification' in window && Notification.permission === 'granted') {
+        try {
+          new Notification('Kryos — Alert triggered', {
+            body: `${coin} reached ${price} (target: ${alert.condition} ${target})`,
+            icon: buildFavicon(true),
+            tag: 'og-alert-' + alert.id,
+            requireInteraction: false
+          });
+        } catch {}
+      }
+
+      // 3. Sound beep (Web Audio — double beep 880Hz → 660Hz)
+      playAlertBeep();
+
+      // 4. Favicon badge (red dot)
+      setFaviconBadge(true);
+      faviconFlashUntilFocus();
+
+      // 5. Log entry in terminal
+      const msgs = document.getElementById('messages');
+      const el   = document.createElement('div');
+      el.className = 'entry ai';
+      el.innerHTML = `
+        <div class="entry-header"><span class="entry-tag tag-ai">⚡ ALERT TRIGGERED</span><span class="entry-time">${ts()}</span></div>
+        <div class="entry-body">
+          <div class="alert-confirm">🔔 <strong>${coin}</strong> reached ${price} — your alert (${alert.condition} ${target}) was triggered!</div>
+        </div>`;
+      msgs.appendChild(el);
+      scrollDown();
+    }
+
+    // ── Flash banner ──────────────────────────────────────────────────────────
+    let flashTimer = null;
+    function showFlashBanner(text) {
+      const b = document.getElementById('flash-banner');
+      b.innerHTML = `<span style="position:relative;z-index:1">${esc(text)}</span>`;
+      b.classList.add('show');
+      clearTimeout(flashTimer);
+      flashTimer = setTimeout(() => b.classList.remove('show'), 4500);
+    }
+
+    // ── Web Audio beep ────────────────────────────────────────────────────────
+    let audioCtx = null;
+    function playAlertBeep() {
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const now = audioCtx.currentTime;
+        const beep = (freq, start, dur) => {
+          const o = audioCtx.createOscillator();
+          const g = audioCtx.createGain();
+          o.type = 'sine';
+          o.frequency.value = freq;
+          g.gain.setValueAtTime(0, now + start);
+          g.gain.linearRampToValueAtTime(0.25, now + start + 0.02);
+          g.gain.exponentialRampToValueAtTime(0.001, now + start + dur);
+          o.connect(g); g.connect(audioCtx.destination);
+          o.start(now + start); o.stop(now + start + dur);
+        };
+        beep(880, 0, 0.15);
+        beep(1180, 0.18, 0.22);
+      } catch {}
+    }
+
+    // ── Dynamic favicon (canvas) — Kryos "K" mark ─────────────────────────────
+    function buildFavicon(withBadge) {
+      const c = document.createElement('canvas');
+      c.width = 64; c.height = 64;
+      const x = c.getContext('2d');
+      // Warm-black background (matches --bg)
+      x.fillStyle = '#0a0a08';
+      x.fillRect(0, 0, 64, 64);
+      // Thin amber border frame (editorial chip)
+      x.strokeStyle = '#ffb800';
+      x.lineWidth = 2;
+      x.strokeRect(3, 3, 58, 58);
+      // "K" glyph — cream ink
+      x.fillStyle = '#eae7dc';
+      x.font = '700 42px "Space Grotesk", system-ui, sans-serif';
+      x.textAlign = 'center';
+      x.textBaseline = 'middle';
+      x.fillText('K', 28, 34);
+      // Amber dot accent — signals "verified"
+      x.fillStyle = '#ffb800';
+      x.beginPath();
+      x.arc(46, 44, 3.5, 0, Math.PI * 2);
+      x.fill();
+      // Red alert badge
+      if (withBadge) {
+        x.fillStyle = '#e84545';
+        x.beginPath();
+        x.arc(50, 14, 12, 0, Math.PI * 2);
+        x.fill();
+        x.strokeStyle = '#0a0a08';
+        x.lineWidth = 2;
+        x.stroke();
+      }
+      return c.toDataURL('image/png');
+    }
+
+    function setFaviconBadge(active) {
+      let link = document.querySelector("link[rel~='icon']");
+      if (!link) {
+        link = document.createElement('link');
+        link.rel = 'icon';
+        document.head.appendChild(link);
+      }
+      link.href = buildFavicon(active);
+    }
+
+    function faviconFlashUntilFocus() {
+      const origTitle = document.title;
+      let on = true;
+      const flashInt = setInterval(() => {
+        document.title = on ? '◆ ALERT · Kryos' : origTitle;
+        on = !on;
+      }, 900);
+      const clear = () => {
+        clearInterval(flashInt);
+        document.title = origTitle;
+        setFaviconBadge(false);
+        window.removeEventListener('focus', clear);
+        window.removeEventListener('click', clear);
+      };
+      window.addEventListener('focus', clear);
+      window.addEventListener('click', clear);
+    }
+
+    function addAlert(alertData) {
+      activeAlerts.push(alertData);
+      renderAlertChips();
+    }
+
+    function renderAlertChips() {
+      const bar    = document.getElementById('alerts-bar');
+      const chips  = document.getElementById('alert-chips');
+      const panel  = document.getElementById('alerts-panel');
+      const list   = document.getElementById('alerts-list');
+      const cnt    = document.getElementById('alert-count');
+      const sts    = document.getElementById('alert-status');
+      const pCnt   = document.getElementById('alerts-panel-count');
+
+      if (activeAlerts.length === 0) {
+        bar.classList.remove('visible');
+        panel.classList.remove('visible');
+        sts.style.display = 'none';
+        return;
+      }
+
+      bar.classList.add('visible');
+      panel.classList.add('visible');
+      sts.style.display = 'inline';
+      cnt.textContent = activeAlerts.length;
+      if (pCnt) pCnt.textContent = activeAlerts.length;
+
+      chips.innerHTML = activeAlerts.map(a =>
+        `<div class="alert-chip" id="chip-${a.id}">
+          ${a.coin.toUpperCase()} ${a.condition} $${a.target_price.toLocaleString()}
+          <button class="alert-remove" onclick="removeAlert('${a.id}')">×</button>
+        </div>`
+      ).join('');
+
+      list.innerHTML = activeAlerts.map(a =>
+        `<div class="a-row">
+          <span>${a.coin.toUpperCase()} ${a.condition} $${a.target_price.toLocaleString()}</span>
+          <button onclick="removeAlert('${a.id}')">×</button>
+        </div>`
+      ).join('');
+    }
+
+    async function removeAlert(id) {
+      try { await fetch(`/api/alerts/${id}`, { method: 'DELETE' }); } catch {}
+      activeAlerts = activeAlerts.filter(a => a.id !== id);
+      renderAlertChips();
+    }
+
+    // ── Chart rendering ───────────────────────────────────────────────────────
+    function renderChart(prices, coin, days, changePct) {
+      const w = 340, h = 65;
+      const vals = prices.map(p => p[1]);
+      if (vals.length < 2) return '';
+
+      const min = Math.min(...vals), max = Math.max(...vals);
+      const range = max - min || 1;
+      const scaleX = w / (vals.length - 1);
+      const scaleY = h / range;
+
+      const polyPoints = vals.map((v, i) =>
+        `${(i * scaleX).toFixed(1)},${(h - (v - min) * scaleY).toFixed(1)}`
+      ).join(' ');
+
+      // Area fill path
+      const areaPoints = `0,${h} ${polyPoints} ${w},${h}`;
+      const isUp = changePct >= 0;
+      const color = isUp ? '#00ff88' : '#ff4466';
+      const changeStr = `${isUp ? '▲' : '▼'} ${Math.abs(changePct).toFixed(2)}%`;
+
+      return `<div class="chart-block">
+        <div class="chart-header">
+          <span class="chart-coin">◈ ${coin.toUpperCase()} · ${days}D</span>
+          <span class="chart-change ${isUp ? 'up' : 'down'}">${changeStr}</span>
+        </div>
+        <svg class="chart-svg" viewBox="0 0 ${w} ${h}" height="${h}" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="cg-${coin}" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="${color}" stop-opacity="0.15"/>
+              <stop offset="100%" stop-color="${color}" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <polygon points="${areaPoints}" fill="url(#cg-${coin})"/>
+          <polyline points="${polyPoints}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linejoin="round"/>
+          <!-- Min/Max labels -->
+          <text x="2" y="${h - 2}" font-size="8" fill="${color}" opacity="0.6" font-family="JetBrains Mono">$${fmtP(min)}</text>
+          <text x="2" y="9" font-size="8" fill="${color}" opacity="0.6" font-family="JetBrains Mono">$${fmtP(max)}</text>
+        </svg>
+      </div>`;
+    }
+
+    // ── Chat ──────────────────────────────────────────────────────────────────
+    function suggest(btn) {
+      document.getElementById('cmd-input').value = btn.textContent.trim();
+      sendMessage();
+    }
+
+    async function sendMessage() {
+      const input = document.getElementById('cmd-input');
+      const btn   = document.getElementById('exec-btn');
+      const text  = input.value.trim();
+      if (!text || streaming) return;
+
+      const welcome = document.getElementById('welcome-screen');
+      if (welcome) welcome.remove();
+
+      input.value = '';
+      resizeInput(input);
+      streaming = true;
+      btn.disabled = true;
+      btn.textContent = 'Thinking…';
+
+      history.push({ role: 'user', content: text });
+      userQueryHistory.push(text);
+      saveHistory();
+      userQueryIdx = -1;
+      addUserEntry(text);
+
+      const botId = 'bot-' + Date.now();
+      botText = '';
+      addBotEntry(botId);
+
+      // Collect chart data from SSE
+      let pendingCharts = [];
+
+      try {
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messages: history.slice(-24), user_query: text })
+        });
+
+        const reader  = res.body.getReader();
+        const decoder = new TextDecoder();
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          for (const line of decoder.decode(value).split('\n')) {
+            if (!line.startsWith('data: ')) continue;
+            try {
+              const d = JSON.parse(line.slice(6));
+              if      (d.type === 'tools_used')  showTools(botId, d.tools);
+              else if (d.type === 'chart_data')  pendingCharts.push(d);
+              else if (d.type === 'text')        appendText(botId, d.content);
+              else if (d.type === 'done') {
+                finalize(botId, d.payment_hash, pendingCharts);
+                history.push({ role: 'assistant', content: botText });
+              }
+              else if (d.type === 'error')       showErr(botId, d.content);
+            } catch {}
+          }
+        }
+      } catch (e) {
+        showErr(botId, 'CONNECTION_ERROR: ' + e.message);
+      }
+
+      streaming = false;
+      btn.disabled = false;
+      btn.textContent = 'Send';
+      input.focus();
+    }
+
+    function ts() { return new Date().toLocaleTimeString('en-US', { hour12: false }); }
+
+    function addUserEntry(text) {
+      const msgs = document.getElementById('messages');
+      const el   = document.createElement('div');
+      el.className = 'entry user';
+      el.innerHTML = `<div class="entry-header"><span class="entry-tag tag-user">You</span><span class="entry-time">${ts()}</span></div><div class="entry-body">${esc(text)}</div>`;
+      msgs.appendChild(el);
+      scrollDown();
+    }
+
+    function addBotEntry(id) {
+      const msgs = document.getElementById('messages');
+      const el   = document.createElement('div');
+      el.className = 'entry ai';
+      el.id        = id;
+      el.innerHTML = `
+        <div class="entry-header"><span class="entry-tag tag-ai">Kryos</span><span class="entry-time">${ts()}</span></div>
+        <div class="entry-actions">
+          <button class="entry-action-btn" onclick="copyEntry('${id}')" title="Copy answer">⧉</button>
+        </div>
+        <div class="entry-body" id="${id}-body"><span class="cursor"></span></div>`;
+      msgs.appendChild(el);
+      scrollDown();
+    }
+
+    function showTools(id, tools) {
+      const body = document.getElementById(`${id}-body`);
+      if (!body) return;
+      const LABELS = {
+        get_crypto_price: 'CoinGecko/price',
+        get_top_coins:    'CoinGecko/markets',
+        get_defi_yields:  'DeFi/yields',
+        get_price_chart:  'CoinGecko/chart',
+        get_gas_fees:     'RPC/gas-fees',
+        check_wallet:     'RPC/balance',
+        get_market_sentiment: 'Fear&Greed/global',
+        get_crypto_news:  'RSS/news-feed',
+        set_price_alert:  'ALERTS/create',
+        get_wallet_portfolio: 'Ethplorer/portfolio'
+      };
+      const tb = document.createElement('div');
+      tb.className = 'tool-bar';
+      tb.id        = `${id}-tool`;
+      tb.innerHTML = `<div class="spinner"></div> QUERYING: <span class="tool-label">${tools.map(t => LABELS[t] || t).join(' + ')}</span>`;
+      body.insertBefore(tb, body.firstChild);
+    }
+
+    function appendText(id, text) {
+      const body = document.getElementById(`${id}-body`);
+      if (!body) return;
+      botText += text;
+      const cursor = body.querySelector('.cursor');
+      if (cursor) cursor.remove();
+      let content = body.querySelector('.ai-content');
+      if (!content) {
+        content = document.createElement('div');
+        content.className = 'ai-content';
+        body.appendChild(content);
+      }
+      content.innerHTML = renderMD(botText);
+      const c = document.createElement('span');
+      c.className = 'cursor';
+      body.appendChild(c);
+      scrollDown();
+    }
+
+    function finalize(id, hash, charts) {
+      const body = document.getElementById(`${id}-body`);
+      if (!body) return;
+
+      // Remove cursor & tool spinner
+      const cursor = body.querySelector('.cursor');
+      if (cursor) cursor.remove();
+      const tool = document.getElementById(`${id}-tool`);
+      if (tool) tool.remove();
+
+      // Ensure text content
+      let content = body.querySelector('.ai-content');
+      if (!content) {
+        content = document.createElement('div');
+        content.className = 'ai-content';
+        content.innerHTML = renderMD(botText);
+        body.appendChild(content);
+      }
+
+      // Insert charts BEFORE text
+      if (charts && charts.length > 0) {
+        charts.forEach(cd => {
+          const chartEl = document.createElement('div');
+          chartEl.innerHTML = renderChart(cd.prices, cd.coin, cd.days, cd.change_pct);
+          body.insertBefore(chartEl, content);
+        });
+      }
+
+      // Check if alert was created
+      const alertMatch = botText.match(/alert_id.*?([a-f0-9]{8})/i) || botText.match(/"id":\s*"([a-f0-9]{8})"/);
+
+      // Try to extract alert from tool results (stored server-side)
+      // We'll just re-fetch active alerts
+      fetchAndSyncAlerts();
+
+      // TEE proof
+      if (hash) {
+        const proof = document.createElement('a');
+        proof.className = 'proof-line';
+        proof.href = `https://explorer.opengradient.ai/tx/${hash}`;
+        proof.target = '_blank';
+        proof.innerHTML = `TEE verified · tx ${hash.slice(0, 10)}…${hash.slice(-8)} · OpenGradient ↗`;
+        body.appendChild(proof);
+      }
+
+      scrollDown();
+    }
+
+    async function fetchAndSyncAlerts() {
+      try {
+        const r = await fetch('/api/alerts');
+        const data = await r.json();
+        activeAlerts = data.alerts || [];
+        renderAlertChips();
+      } catch {}
+    }
+
+    function showErr(id, msg) {
+      const body = document.getElementById(`${id}-body`);
+      const cursor = body?.querySelector('.cursor');
+      if (cursor) cursor.remove();
+      if (body) body.innerHTML += `<div class="error-line">ERR: ${esc(msg)}</div>`;
+    }
+
+    function scrollDown() { const m = document.getElementById('messages'); m.scrollTop = m.scrollHeight; }
+
+    function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+    function renderMD(t) {
+      return t
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/`(.+?)`/g, '<code>$1</code>')
+        .replace(/^#{1,3}\s+(.+)$/gm, '<strong>► $1</strong>')
+        .replace(/^\s*[-•]\s+(.+)$/gm, '<li>$1</li>')
+        .replace(/(<li>[\s\S]*?<\/li>)/g, '<ul>$1</ul>')
+        .replace(/\n\n+/g, '</p><p>')
+        .replace(/^(.+)$/, '<p>$1</p>');
+    }
+
+    // ── Input ─────────────────────────────────────────────────────────────────
+    function setupInput() {
+      const input = document.getElementById('cmd-input');
+      input.addEventListener('input', () => { resizeInput(input); userQueryIdx = -1; });
+      input.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+        else if (e.key === 'ArrowUp' && input.value.trim() === '' && userQueryHistory.length) {
+          e.preventDefault();
+          userQueryIdx = Math.min(userQueryIdx + 1, userQueryHistory.length - 1);
+          input.value = userQueryHistory[userQueryHistory.length - 1 - userQueryIdx] || '';
+          resizeInput(input);
+        }
+        else if (e.key === 'ArrowDown' && userQueryIdx >= 0) {
+          e.preventDefault();
+          userQueryIdx -= 1;
+          input.value = userQueryIdx >= 0 ? userQueryHistory[userQueryHistory.length - 1 - userQueryIdx] : '';
+          resizeInput(input);
+        }
+      });
+    }
+
+    function resizeInput(el) {
+      el.style.height = 'auto';
+      el.style.height = Math.min(el.scrollHeight, 80) + 'px';
+    }
+
+    // ── Keyboard shortcuts (global) ───────────────────────────────────────────
+    function setupKeyboard() {
+      document.addEventListener('keydown', e => {
+        // ⌘K / Ctrl+K — focus input
+        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+          e.preventDefault();
+          const inp = document.getElementById('cmd-input');
+          inp?.focus(); inp?.select();
+        }
+        // Esc — close modal OR clear input
+        else if (e.key === 'Escape') {
+          const openM = document.querySelector('.modal-backdrop.show');
+          if (openM) { openM.classList.remove('show'); return; }
+          const inp = document.getElementById('cmd-input');
+          if (document.activeElement === inp && inp.value) inp.value = '';
+        }
+      });
+    }
+
+    // ── History persistence (localStorage) ────────────────────────────────────
+    function saveHistory() {
+      try {
+        localStorage.setItem('og-query-history', JSON.stringify(userQueryHistory.slice(-20)));
+      } catch {}
+    }
+    function restoreHistory() {
+      try {
+        const saved = JSON.parse(localStorage.getItem('og-query-history') || '[]');
+        if (Array.isArray(saved)) userQueryHistory = saved;
+      } catch {}
+    }
+  </script>
+</body>
+</html>
