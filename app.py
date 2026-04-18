@@ -17,6 +17,47 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# ── x402 TLS patch ────────────────────────────────────────────────────────────
+# The x402 retry creates a new AsyncClient() without the TEE's pinned TLS cert.
+# On Linux (Railway/cloud) strict SSL rejects the TEE's self-signed IP cert.
+# Patch retry to use verify=False — safe because the first request already
+# validated the TEE certificate via the pinned ssl_ctx.
+try:
+    import x402.clients.httpx as _x402_httpx
+    from httpx import AsyncClient as _AsyncClient
+    from x402.types import x402PaymentRequiredResponse as _x402PRR
+    from x402.clients.base import PaymentError as _PaymentError
+
+    async def _patched_on_response(self, response):
+        if response.status_code != 402:
+            return response
+        if self._is_retry:
+            return response
+        try:
+            await response.aread()
+            data = response.json()
+            payment_response = _x402PRR(**data)
+            selected = self.client.select_payment_requirements(payment_response.accepts)
+            header   = self.client.create_payment_header(selected, payment_response.x402_version)
+            self._is_retry = True
+            request = response.request
+            request.headers["X-Payment"] = header
+            request.headers["Access-Control-Expose-Headers"] = "X-Payment-Response"
+            async with _AsyncClient(verify=False) as c:
+                retry = await c.send(request)
+                response.status_code = retry.status_code
+                response.headers     = retry.headers
+                response._content    = retry._content
+            return response
+        except Exception as exc:
+            self._is_retry = False
+            raise _PaymentError(f"Payment handling failed: {exc}") from exc
+
+    _x402_httpx.HttpxHooks.on_response = _patched_on_response
+    print("[PATCH] x402 TLS retry patched (verify=False)")
+except Exception as _patch_err:
+    print(f"[PATCH] x402 patch failed (non-fatal): {_patch_err}")
+
 app = FastAPI(title="OG DeFi Advisor")
 
 app.add_middleware(
